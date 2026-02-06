@@ -11,11 +11,10 @@
 Estructura relevante del código
 - Comandos CLI: `bin/Main.java` y `cli/cmd/`:
     - `PlanCmd.java` ? genera un plan (dry-run).
-    - `PrepareCmd.java` ? prepara archivos y copias necesarias.
-    - `InstallerCmd.java` ? ejecuta la instalación/activación.
-    - `RollbackCmd.java` ? ejecuta rollback.
-    - `StatusCmd.java` ? muestra el estado actual.
-    - `MenuCmd.java` ? menú interactivo.
+    - `pcm-deploy plan --from /opt/pcm-deploy/incoming/pcm-2.4.0.zip --force`
+    - `pcm-deploy install --from /opt/pcm-deploy/incoming/pcm-2.4.0.zip --force --yes`
+1. `pcm-deploy plan --version X.Y.Z` o `pcm-deploy plan --from <release.zip>` (Planner).
+2. `pcm-deploy install --version X.Y.Z` o `pcm-deploy install --from <release.zip>` (Installer + HealthChecker).
 - Lógica central (`core/`):
     - `Planner.java` ? crea el plan de activación (servicios, copias, backups).
     - `Preparer.java` ? ejecuta pasos previos a la instalación.
