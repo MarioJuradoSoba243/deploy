@@ -107,17 +107,17 @@ public class Installer {
         String ts = Instant.now().toString().replace(":", "-");
         Path root = paths.backupRoot().resolve(ts);
         for (Manifest.ServiceDef s : manifest.services()) {
-            Path orig = s.isJar()
-                    ? Path.of(s.targetLibDir()).resolve(s.resolvedTargetFileName())
-                    : Path.of(s.targetDeployPath());
-            if (Files.exists(orig)) {
-                Path bak = root.resolve(s.name()).resolve(orig.getFileName());
-                Files.createDirectories(bak.getParent());
-                Files.move(orig, bak, REPLACE_EXISTING, ATOMIC_MOVE);
-                list.add(new Backup(orig, bak));
-                System.out.println("Backup " + orig + " -> " + bak);
-            } else {
-                System.out.println("No existe actual para " + s.name() + " (" + orig + "), no se hace backup");
+            for (ArtifactSpec spec : buildArtifactsForService(Path.of("."), s)) {
+                Path orig = spec.destination();
+                if (Files.exists(orig)) {
+                    Path bak = root.resolve(s.name()).resolve(orig.getFileName());
+                    Files.createDirectories(bak.getParent());
+                    Files.move(orig, bak, REPLACE_EXISTING, ATOMIC_MOVE);
+                    list.add(new Backup(orig, bak));
+                    System.out.println("Backup " + orig + " -> " + bak);
+                } else {
+                    System.out.println("No existe actual para " + s.name() + " (" + orig + "), no se hace backup");
+                }
             }
         }
         return list;
@@ -137,21 +137,32 @@ public class Installer {
 
     private void copyArtifactsFromRelease(Path release, Manifest manifest) throws IOException {
         for (Manifest.ServiceDef s : manifest.services()) {
-            Path src = release.resolve(s.artifact());
-            if (!Files.exists(src)) throw new IllegalStateException("No existe artefacto: " + src);
-            if (s.isJar()) {
-                Path dest = Path.of(s.targetLibDir()).resolve(s.resolvedTargetFileName());
+            for (ArtifactSpec spec : buildArtifactsForService(release, s)) {
+                Path src = spec.source();
+                if (!Files.exists(src)) throw new IllegalStateException("No existe artefacto: " + src);
+                Path dest = spec.destination();
                 Files.createDirectories(dest.getParent());
                 Files.copy(src, dest, REPLACE_EXISTING);
-                System.out.println("Copiado JAR: " + src + " -> " + dest);
-            } else if (s.isWar()) {
-                Path dest = Path.of(s.targetDeployPath());
-                Files.createDirectories(dest.getParent());
-                Files.copy(src, dest, REPLACE_EXISTING);
-                System.out.println("Copiado WAR: " + src + " -> " + dest);
-            } else {
-                throw new IllegalArgumentException("Tipo no soportado: " + s.type());
+                System.out.println("Copiado " + s.name() + ": " + src + " -> " + dest);
             }
         }
     }
+
+    private List<ArtifactSpec> buildArtifactsForService(Path release, Manifest.ServiceDef service) {
+        List<ArtifactSpec> artifacts = new ArrayList<>();
+        Path mainSrc = release.resolve(service.artifact());
+        Path mainDest = service.isJar()
+                ? Path.of(service.targetLibDir()).resolve(service.resolvedTargetFileName())
+                : Path.of(service.targetDeployPath());
+        artifacts.add(new ArtifactSpec(mainSrc, mainDest));
+
+        for (String commonLib : service.commonLibsOrEmpty()) {
+            Path src = release.resolve(commonLib);
+            Path dest = service.targetDeployDir().resolve(Path.of(commonLib).getFileName().toString());
+            artifacts.add(new ArtifactSpec(src, dest));
+        }
+        return artifacts;
+    }
+
+    private record ArtifactSpec(Path source, Path destination) {}
 }

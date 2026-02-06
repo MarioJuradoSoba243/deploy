@@ -54,6 +54,14 @@ public class Planner {
             sb.append(String.format("     source:  %s\n", src));
             sb.append(String.format("     target:  %s\n", dest));
             sb.append(String.format("     health:  %s\n", s.health().url()));
+            if (!s.commonLibsOrEmpty().isEmpty()) {
+                sb.append("     commonLibs:\n");
+                for (String commonLib : s.commonLibsOrEmpty()) {
+                    Path commonSrc = release.resolve(commonLib);
+                    Path commonDest = s.targetDeployDir().resolve(Path.of(commonLib).getFileName().toString());
+                    sb.append(String.format("       - %s -> %s%n", commonSrc, commonDest));
+                }
+            }
         }
 
         sb.append("\nAcciones previstas:\n");
@@ -73,4 +81,3 @@ public class Planner {
         return sb.toString();
     }
 }
-

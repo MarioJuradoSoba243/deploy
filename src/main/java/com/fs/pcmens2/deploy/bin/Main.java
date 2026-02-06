@@ -10,7 +10,6 @@ import picocli.CommandLine.Command;
         version = {"pcm-deploy 0.2.0"},
         description = "CLI para despliegues locales de la plataforma PCM",
         subcommands = {
-                PrepareCmd.class,
                 InstallerCmd.class,
                 RollbackCmd.class,
                 StatusCmd.class,

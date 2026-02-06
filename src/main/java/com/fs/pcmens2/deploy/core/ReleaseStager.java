@@ -1,61 +1,71 @@
 package com.fs.pcmens2.deploy.core;
 
-
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-public class Preparer {
-
+public class ReleaseStager {
     private final PlatformPaths paths;
-    private final ChecksumVerifier verifier;
 
-    public Preparer(PlatformPaths paths, ChecksumVerifier verifier) {
-        this.paths = paths; this.verifier = verifier;
+    public ReleaseStager(PlatformPaths paths) {
+        this.paths = paths;
     }
 
-    public void install(Path from, boolean force) {
+    public StagedRelease stageRelease(Path from, boolean force) {
         paths.ensureBaseDirs();
+        if (from == null) throw new IllegalArgumentException("Ruta de release requerida (--from).");
 
-        // Extraer/ubicar staging temporal
-        Path temp;
+        Path temp = null;
+        boolean cleanup = false;
         try {
             if (!Files.exists(from)) throw new IllegalArgumentException("No existe: " + from);
             if (Files.isDirectory(from)) {
                 temp = from.toAbsolutePath().normalize();
             } else {
                 temp = Files.createTempDirectory("platform-release-");
+                cleanup = true;
                 unzip(from, temp);
             }
-            // detectar carpeta raíz (puede venir platform/.... o directamente)
+
             Path releaseRoot = detectReleaseRoot(temp);
             Manifest manifest = Manifest.load(releaseRoot.resolve("manifest.yml"));
             String version = manifest.platform().version();
-            Path target = paths.releaseDir(version);
+            if (version == null || version.isBlank()) {
+                throw new IllegalStateException("Manifest sin versión de plataforma.");
+            }
 
+            Path target = paths.releaseDir(version);
             if (Files.exists(target)) {
-                if (!force) throw new IllegalStateException("Ya existe releases/" + version + " (usa --force para sobrescribir)");
+                if (!force) {
+                    throw new IllegalStateException("Ya existe releases/" + version + " (usa --force para sobrescribir)");
+                }
                 FilesEx.deleteRecursively(target);
             }
             Files.createDirectories(target.getParent());
             FilesEx.copyRecursively(releaseRoot, target);
 
-            // verificar checksums
-
-            verifier.listChecksums(target);
-
-            // registrar en state
             StateStore.State state = new StateStore(paths).load();
-            state = state.withInstalled(manifest.platform().version());
+            state = state.withInstalled(version);
             new StateStore(paths).save(state);
 
-            System.out.println("Release " + version + " preparada para instalar en " + target);
-        } catch (IOException e) { throw new RuntimeException(e); }
+            return new StagedRelease(version, target);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (cleanup && temp != null) {
+                try {
+                    FilesEx.deleteRecursively(temp);
+                } catch (IOException e) {
+                    throw new RuntimeException("No se pudo limpiar staging temporal: " + temp, e);
+                }
+            }
+        }
     }
 
     private Path detectReleaseRoot(Path temp) {
-        // si hay subcarpeta "platform" úsala, si no temp
         Path maybe = temp.resolve("platform");
         if (Files.isDirectory(maybe)) return maybe;
         return temp;
@@ -75,4 +85,6 @@ public class Preparer {
             }
         }
     }
+
+    public record StagedRelease(String version, Path releaseDir) {}
 }
