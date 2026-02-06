@@ -30,6 +30,7 @@ public record Manifest(PlatformInfo platform, List<ServiceDef> services) {
             String name,
             String type,                 // "jar" | "war"
             String artifact,             // relativo al release
+            List<String> commonLibs,     // libs adicionales a copiar al deploy
             String targetLibDir,         // para JARs
             String targetDeployPath,     // para WARs
             String systemdUnit,
@@ -44,6 +45,19 @@ public record Manifest(PlatformInfo platform, List<ServiceDef> services) {
             String src = Path.of(artifact).getFileName().toString();
             return src; // por defecto mantener nombre fuente
         }
+
+        public List<String> commonLibsOrEmpty() {
+            return commonLibs == null ? List.of() : commonLibs;
+        }
+
+        public Path targetDeployDir() {
+            if (isJar()) return Path.of(targetLibDir);
+            if (isWar()) {
+                Path parent = Path.of(targetDeployPath).getParent();
+                if (parent != null) return parent;
+            }
+            throw new IllegalStateException("No se pudo resolver carpeta deploy para " + name);
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -52,4 +66,3 @@ public record Manifest(PlatformInfo platform, List<ServiceDef> services) {
         public int retriesOrDefault() { return Optional.ofNullable(retries).orElse(3); }
     }
 }
-

@@ -10,8 +10,14 @@ import java.nio.file.Path;
 @Command(name="install", description = "Instala una versión de la plataforma (switch + restart + health)")
 public class InstallerCmd implements Runnable {
 
-    @Option(names="--version", required = true, description = "Versión a instalar (de releases/)")
+    @Option(names="--version", description = "Versión a instalar (de releases/)")
     String version;
+
+    @Option(names="--from", description = "Ruta a ZIP o carpeta del release")
+    Path from;
+
+    @Option(names="--force", description = "Sobrescribe si ya existe la versión en releases/")
+    boolean force;
 
     @Option(names="--home", description = "Directorio base. Por defecto: /opt/pcm-deploy o $PCM_DEPLOY_HOME")
     Path home;
@@ -21,6 +27,7 @@ public class InstallerCmd implements Runnable {
 
     @Override public void run() {
         PlatformPaths paths = PlatformPaths.of(home);
+        version = resolveVersion(paths);
 
         // 1) Mostrar plan (dry-run) antes de activar
         ChecksumVerifier verifier = new ChecksumVerifier();
@@ -45,6 +52,20 @@ public class InstallerCmd implements Runnable {
         installer.activate(version);
         System.out.println("Instalacion finalizada.");
     }
+
+    private String resolveVersion(PlatformPaths paths) {
+        boolean hasVersion = version != null && !version.isBlank();
+        boolean hasFrom = from != null;
+        if (hasVersion && hasFrom) {
+            throw new IllegalArgumentException("Usa solo --version o --from, no ambos.");
+        }
+        if (!hasVersion && !hasFrom) {
+            throw new IllegalArgumentException("Debes indicar --version o --from.");
+        }
+        if (hasFrom) {
+            ReleaseStager stager = new ReleaseStager(paths);
+            return stager.stageRelease(from, force).version();
+        }
+        return version;
+    }
 }
-
-

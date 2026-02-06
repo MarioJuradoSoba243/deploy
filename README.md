@@ -1,86 +1,60 @@
 # pcm-deploy - CLI de despliegue de PCM2
 
-pcm-deploy es una herramienta de línea de comandos para desplegar localmente la plataforma PCM en entornos Unix con `systemd`, Java 21 y Maven. El código fuente principal está en `src/main/java/com/fs/pcmens2/deploy`.
+pcm-deploy es una herramienta de lÃ­nea de comandos para desplegar localmente la plataforma PCM en entornos Unix con `systemd`, Java 21 y Maven. Permite planificar, activar y hacer rollback de versiones de la plataforma a partir de artefactos (JAR/WAR) empaquetados en ZIP o en una carpeta.
+## Puntos relevantes
+- La versiÃ³n es de toda la plataforma PCM (unidad completa).
+- Validaciones: checksums SHA-256 y health checks HTTP; el sistema soporta rollback automÃ¡tico en fallo de activaciÃ³n.
 
-Principios clave
-- La versión es de toda la plataforma PCM (unidad completa).
-- Los artefactos (JAR/WAR) se proporcionan externamente (ZIP o carpeta).
-- No se modifican configuraciones, logs ni datos de procesos.
-- Los procesos ya existen y se gestionan con `systemd`.
-- Para JARs se copia al directorio `lib/` del servicio; para WARs al directorio de despliegue (ej. `webapps/`).
-- Validaciones: checksums SHA-256 y health checks HTTP; el sistema soporta rollback automático en fallo de activación.
+## Comandos disponibles (con ejemplos)
+### Plan (dry-run)
+Muestra el plan de activaciÃ³n sin aplicar cambios.
+- `pcm-deploy plan --version 2.4.0`
+- `pcm-deploy plan --from /opt/pcm-deploy/incoming/pcm-2.4.0.zip`
+- `pcm-deploy plan --from /opt/pcm-deploy/incoming/pcm-2.4.0.zip --force`
 
-Estructura relevante del código
-- Comandos CLI: `bin/Main.java` y `cli/cmd/`:
-    - `PlanCmd.java` ? genera un plan (dry-run).
-    - `PrepareCmd.java` ? prepara archivos y copias necesarias.
-    - `InstallerCmd.java` ? ejecuta la instalación/activación.
-    - `RollbackCmd.java` ? ejecuta rollback.
-    - `StatusCmd.java` ? muestra el estado actual.
-    - `MenuCmd.java` ? menú interactivo.
-- Lógica central (`core/`):
-    - `Planner.java` ? crea el plan de activación (servicios, copias, backups).
-    - `Preparer.java` ? ejecuta pasos previos a la instalación.
-    - `Installer.java` ? aplica cambios (copias, symlinks, control de `systemd`).
-    - `ChecksumVerifier.java` ? verifica SHA-256 de artefactos.
-    - `HealthChecker.java` ? realiza comprobaciones HTTP de salud.
-    - `StateStore.java` ? mantiene estado (versión activa, paths).
-    - `PlatformPaths.java` ? rutas estándar de plataforma/runtime.
-    - `LockManager.java` ? evita ejecuciones concurrentes.
-    - `FilesEx.java`, `Manifest.java`, `SystemdService.java` ? utilidades y modelos.
-- Utilidades:
-    - `util/Prompt.java` ? interacción y confirmaciones.
+### Instalar / Activar
+Activa una versiÃ³n: detiene servicios, realiza backups, copia artefactos, actualiza symlinks y arranca con health checks.
+- `pcm-deploy install --version 2.4.0`
+- `pcm-deploy install --from /opt/pcm-deploy/incoming/pcm-2.4.0.zip`
+- `pcm-deploy install --from /opt/pcm-deploy/incoming/pcm-2.4.0.zip --force --yes`
 
-Comandos disponibles
-- Plan (dry-run)
-    - `pcm-deploy plan --version 2.4.0`
-    - Muestra lo que se haría sin aplicar cambios (servicios a parar, copias, backups, health checks).
-- Preparar release
-    - `pcm-deploy prepare --from /opt/pcm-deploy/incoming/pcm-2.4.0.zip`
-    - Descomprime y valida checksums; prepara artefactos para instalación.
-- Instalar / Activar
-    - `pcm-deploy install --version 2.4.0`
-    - Aplica el plan: para unidades `systemd`, backup de artefactos, copia de nuevos artefactos, actualización de symlinks (`platform/current` y `platform/previous`), arranque y health checks.
-    - `--yes` para ejecución no interactiva.
-- Rollback
-    - `pcm-deploy rollback`
-    - `pcm-deploy rollback --to 2.3.0`
-    - Restaura la versión anterior si el installer determinó fallo o el usuario lo ordena.
-- Estado
-    - `pcm-deploy status`
-    - Muestra versión activa, rutas y resultados de últimos steps.
-- Verificar checksums
-    - `pcm-deploy verify --version 2.4.0`
-    - Usa `core/ChecksumVerifier.java`.
-- Menú interactivo
-    - `pcm-deploy menu`
+### Rollback
+Vuelve a la versiÃ³n previa o a una versiÃ³n concreta.
+- `pcm-deploy rollback`
+- `pcm-deploy rollback --to 2.3.0`
 
-Flujo típico
-1. `pcm-deploy plan --version X.Y.Z` (Planner).
-2. `pcm-deploy prepare --from <release>` (Preparer + ChecksumVerifier).
-3. `pcm-deploy install --version X.Y.Z` (Installer + HealthChecker).
-4. En fallo, `pcm-deploy rollback` (Installer + StateStore).
+### Estado
+Muestra versiÃ³n activa, previa y estado de `systemd`.
+- `pcm-deploy status`
 
-Validaciones y seguridad
-- Checksums: SHA-256 (implementado en `core/ChecksumVerifier.java`).
-- Health checks HTTP: comprobaciones configurables (implementado en `core/HealthChecker.java`).
-- Locks para evitar ejecuciones concurrentes (`core/LockManager.java`).
-- No se tocan datos ni logs; los backups de artefactos se almacenan en `runtime/backups/<timestamp>/`.
+### MenÃº interactivo
+Muestra un menÃº con accesos directos a comandos.
+- `pcm-deploy menu`
 
-Compilar y ejecutar
-- Compilar con Maven:
-    - `mvn -DskipTests package`
-- Ejecutar (jar exportado por el empaquetado):
+## Flujo tÃ­pico
+1. `pcm-deploy plan --version X.Y.Z` o `pcm-deploy plan --from <release.zip>`.
+2. `pcm-deploy install --version X.Y.Z` o `pcm-deploy install --from <release.zip>`.
+3. En fallo, `pcm-deploy rollback`.
+
+## Compilar y ejecutar
+- Alternativamente (desde cÃ³digo):
+## Estructura del cÃ³digo
+- Comandos CLI: `src/main/java/com/fs/pcmens2/deploy/cli/cmd/`
+- LÃ³gica central: `src/main/java/com/fs/pcmens2/deploy/core/`
+- Utilidades: `src/main/java/com/fs/pcmens2/deploy/util/`
+## Notas
+- La herramienta estÃ¡ pensada para entornos Unix con `systemd`.
+- El staging de releases se integra en `plan`/`install` cuando se usa `--from`.
     - `java -jar target/pcm-deploy-<version>.jar <comando> [opciones]`
-- Alternativamente (desde código):
+- Alternativamente (desde cÃ³digo):
     - Ejecutar `bin/Main` como clase principal desde el IDE o con `mvn exec:java -Dexec.mainClass=com.fs.pcmens2.deploy.bin.Main`.
 
-Archivos clave a revisar en el código fuente
+Archivos clave a revisar en el cÃ³digo fuente
 - `src/main/java/com/fs/pcmens2/deploy/bin/Main.java`
 - `src/main/java/com/fs/pcmens2/deploy/cli/cmd/*.java`
 - `src/main/java/com/fs/pcmens2/deploy/core/*.java`
 - `src/main/java/com/fs/pcmens2/deploy/util/Prompt.java`
 
 Notas
-- La herramienta está pensada para entornos Unix con `systemd`. Aunque se desarrolla en Windows/IntelliJ, la ejecución objetivo debe ser un sistema con `systemd`.
-- El README omite ejemplos extensos; los comandos y responsabilidades están alineados con las clases del paquete `core` y `cli/cmd`.
+- La herramienta estÃ¡ pensada para entornos Unix con `systemd`. Aunque se desarrolla en Windows/IntelliJ, la ejecuciÃ³n objetivo debe ser un sistema con `systemd`.
+- El README omite ejemplos extensos; los comandos y responsabilidades estÃ¡n alineados con las clases del paquete `core` y `cli/cmd`.
