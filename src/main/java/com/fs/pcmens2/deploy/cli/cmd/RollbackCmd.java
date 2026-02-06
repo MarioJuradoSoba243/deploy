@@ -12,7 +12,7 @@ public class RollbackCmd implements Runnable {
     @Option(names = "--to", description = "Versión concreta a la que volver (opcional)")
     String toVersion;
 
-    @Option(names = "--home", description = "Directorio base. Por defecto: /opt/pcm-deploy o $PLATFORM_HOME")
+    @Option(names = "--home", description = "Directorio base. Por defecto: /opt/pcm-deploy o $PCM_DEPLOY_HOME")
     Path home;
 
     @Override
@@ -23,7 +23,7 @@ public class RollbackCmd implements Runnable {
         var checker = new HealthChecker();
         var checksumVerifier = new ChecksumVerifier();
 
-        Activator activator = new Activator(paths, state, systemd, checker, checksumVerifier);
-        activator.rollback(toVersion);
+        Installer installer = new Installer(paths, state, systemd, checker, checksumVerifier);
+        installer.rollback(toVersion);
     }
 }

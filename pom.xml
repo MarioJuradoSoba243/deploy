@@ -56,13 +56,13 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.myplatform.cli.Main</mainClass>
+                            <mainClass>com.fs.pcmens2.deploy.bin.Main</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
-                    <finalName>myplatform</finalName>
+                    <finalName>pcm-deploy</finalName>
                 </configuration>
                 <executions>
                     <execution>

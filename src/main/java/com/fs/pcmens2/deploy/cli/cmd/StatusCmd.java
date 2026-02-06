@@ -8,7 +8,7 @@ import java.nio.file.Path;
 @Command(name="status", description = "Muestra estado actual, version activa y systemd")
 public class StatusCmd implements Runnable {
 
-    @Option(names="--home", description = "Directorio base. Por defecto: /opt/pcm-deploy o $PLATFORM_HOME")
+    @Option(names="--home", description = "Directorio base. Por defecto: /opt/pcm-deploy o $PCM_DEPLOY_HOME")
     Path home;
 
     @Override public void run() {
@@ -19,9 +19,10 @@ public class StatusCmd implements Runnable {
         StateStore.State st = state.load();
         System.out.println("Versión activa: " + st.currentVersion());
         System.out.println("Versión previa: " + st.previousVersion());
-        System.out.println("Instaladas: " + st.installedVersions());
+        System.out.println("Preparadas: " + st.installedVersions());
 
         Manifest manifest = Manifest.load(paths.currentReleaseDir().resolve("manifest.yml"));
+
         System.out.println("\nServicios:");
         for (var svc : manifest.services()) {
             boolean active = systemd.isActive(svc.systemdUnit());

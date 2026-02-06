@@ -1,19 +1,21 @@
 package com.fs.pcmens2.deploy.bin;
 
+import com.fs.pcmens2.deploy.cli.cmd.*;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
-
-import com.fs.pcmens2.deploy.cli.cmd.*;
-
 
 @Command(
         name = "pcm-deploy",
         mixinStandardHelpOptions = true,
-        version = {"pcm-deploy 0.1.0"},
-        description = "CLI para despliegues locales de una plataforma Java",
+        version = {"pcm-deploy 0.2.0"},
+        description = "CLI para despliegues locales de la plataforma PCM",
         subcommands = {
-                InstallCmd.class, ActivateCmd.class, RollbackCmd.class,
-                VerifyCmd.class, StatusCmd.class, MenuCmd.class
+                PrepareCmd.class,
+                InstallerCmd.class,
+                RollbackCmd.class,
+                StatusCmd.class,
+                PlanCmd.class,
+                MenuCmd.class
         }
 )
 public class Main implements Runnable {
@@ -23,4 +25,3 @@ public class Main implements Runnable {
         System.exit(exit);
     }
 }
-

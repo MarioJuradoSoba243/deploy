@@ -3,7 +3,6 @@ package com.fs.pcmens2.deploy.core;
 
 import java.io.IOException;
 import java.nio.file.*;
-import static java.nio.file.StandardCopyOption.*;
 
 public class PlatformPaths {
     private final Path home;
@@ -15,7 +14,7 @@ public class PlatformPaths {
     public static PlatformPaths of(java.nio.file.Path override) {
         var base = override != null
                 ? override
-                : Path.of(System.getenv().getOrDefault("PLATFORM_HOME", "/opt/pcm-deploy"));
+                : Path.of(System.getenv().getOrDefault("PCM_DEPLOY_HOME", "/home/pcm/poc/deploy/pcm-lab"));
         return new PlatformPaths(base.toAbsolutePath().normalize());
     }
 
@@ -28,12 +27,13 @@ public class PlatformPaths {
     public Path previousSymlink() { return platformDir().resolve("previous"); }
     public Path currentReleaseDir() { return resolveSymlink(currentSymlink()); }
 
+    public Path configDir() { return home.resolve("config"); }
+
     public Path stateDir() { return home.resolve("state"); }
     public Path stateFile() { return stateDir().resolve("state.json"); }
     public Path lockFile() { return stateDir().resolve("deploy.lock"); }
 
-    public Path runtimeDir() { return home.resolve("runtime"); }
-    public Path backupRoot() { return runtimeDir().resolve("backups"); }
+    public Path backupRoot() { return home.resolve("backups"); }
 
     public void ensureBaseDirs() {
         try {
@@ -41,25 +41,34 @@ public class PlatformPaths {
             Files.createDirectories(releasesDir());
             Files.createDirectories(stateDir());
             Files.createDirectories(backupRoot());
+            Files.createDirectories(configDir());
         } catch (IOException e) { throw new RuntimeException(e); }
     }
 
+
     public void switchCurrent(String newVersion) {
         try {
-            Path newTarget = releaseDir(newVersion);
-            if (!Files.isDirectory(newTarget)) throw new IllegalArgumentException("No existe release " + newVersion);
-
-            // actualizar previous -> current
-            if (Files.isSymbolicLink(currentSymlink())) {
-                Path currTarget = Files.readSymbolicLink(currentSymlink());
-                recreateSymlink(previousSymlink(), currTarget);
+            Path newTargetAbs = releaseDir(newVersion);          // .../pcm-lab/platform/releases/2.4.0
+            if (!Files.isDirectory(newTargetAbs)) {
+                throw new IllegalArgumentException("No existe release " + newVersion);
             }
-            // current -> newVersion
-            recreateSymlink(currentSymlink(), home.relativize(newTarget));
+
+            // previous -> target actual de current (si existe)
+            if (Files.isSymbolicLink(currentSymlink())) {
+                Path currTargetRel = Files.readSymbolicLink(currentSymlink());
+                recreateSymlink(previousSymlink(), currTargetRel);
+            }
+
+            // current -> releases/<version>  (IMPORTANTE: relativo al padre del link)
+            Path linkParent = currentSymlink().getParent();
+            Path targetRelToLink = linkParent.relativize(newTargetAbs);
+            recreateSymlink(currentSymlink(), targetRelToLink);
+
         } catch (IOException e) {
             throw new RuntimeException("Error al actualizar symlinks", e);
         }
     }
+
 
     public void switchToPrevious() {
         try {
