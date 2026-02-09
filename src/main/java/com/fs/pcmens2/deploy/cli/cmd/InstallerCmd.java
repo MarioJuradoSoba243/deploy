@@ -25,6 +25,9 @@ public class InstallerCmd implements Runnable {
     @Option(names="--yes", description = "No preguntar confirmación interactiva (modo no interactivo)")
     boolean yes;
 
+    @Option(names="--manifest", description = "Ruta al manifest de la versión a instalar")
+    Path manifest;
+
     @Override public void run() {
         PlatformPaths paths = PlatformPaths.of(home);
         version = resolveVersion(paths);
@@ -32,7 +35,7 @@ public class InstallerCmd implements Runnable {
         // 1) Mostrar plan (dry-run) antes de activar
         ChecksumVerifier verifier = new ChecksumVerifier();
         Planner planner = new Planner(paths, verifier, new StateStore(paths));
-        String plan = planner.renderPlan(version);
+        String plan = planner.renderPlan(version, manifest);
         System.out.println(plan);
 
         // 2) Confirmación interactiva (omitible con --yes)
@@ -49,7 +52,7 @@ public class InstallerCmd implements Runnable {
         SystemdService systemd = new SystemdService();
         HealthChecker checker = new HealthChecker();
         Installer installer = new Installer(paths, state, systemd, checker, verifier);
-        installer.activate(version);
+        installer.activate(version, manifest);
         System.out.println("Instalacion finalizada.");
     }
 

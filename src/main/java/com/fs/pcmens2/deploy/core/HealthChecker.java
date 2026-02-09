@@ -9,7 +9,24 @@ import java.time.Duration;
 public class HealthChecker {
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
 
+    /**
+     * Indica si el servicio tiene un health check HTTP configurado.
+     *
+     * @param svc definición del servicio
+     * @return true si existe URL de health, en otro caso false
+     */
+    public static boolean hasHealthCheck(Manifest.ServiceDef svc) {
+        if (svc == null || svc.health() == null) {
+            return false;
+        }
+        String url = svc.health().url();
+        return url != null && !url.isBlank();
+    }
+
     public boolean waitUntilHealthy(Manifest.ServiceDef svc, Duration overallTimeout) {
+        if (!hasHealthCheck(svc)) {
+            return true;
+        }
         String url = svc.health().url();
         Duration timeoutPerTry = Duration.ofSeconds(svc.health().timeoutSecondsOrDefault());
         int retries = svc.health().retriesOrDefault();
@@ -31,4 +48,3 @@ public class HealthChecker {
         } catch (Exception e) { return false; }
     }
 }
-

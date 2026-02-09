@@ -22,6 +22,16 @@ public class Installer {
     }
 
     public void activate(String version) {
+        activate(version, null);
+    }
+
+    /**
+     * Activa la versión indicada usando un manifest opcional.
+     *
+     * @param version versión a activar
+     * @param manifestOverride ruta opcional al manifest
+     */
+    public void activate(String version, Path manifestOverride) {
         paths.ensureBaseDirs();
         try (LockManager lock = new LockManager(paths)) {
             Path release = paths.releaseDir(version);
@@ -31,7 +41,8 @@ public class Installer {
 //            verifier.verifyRelease(release);
             verifier.generateChecksums(release);
 
-            Manifest manifest = Manifest.load(release.resolve("manifest.yml"));
+            Path manifestPath = ManifestResolver.resolve(release, manifestOverride);
+            Manifest manifest = Manifest.load(manifestPath);
 
             String current = state.load().currentVersion();
             System.out.println("Activando versión " + version + " (previa: " + current + ")");
@@ -60,6 +71,10 @@ public class Installer {
 
                 // HEALTH
                 for (Manifest.ServiceDef svc : manifest.services()) {
+                    if (!HealthChecker.hasHealthCheck(svc)) {
+                        System.out.println("Health check omitido para " + svc.name());
+                        continue;
+                    }
                     System.out.println("Health check: " + svc.name() + " -> " + svc.health().url());
                     if (!health.waitUntilHealthy(svc, Duration.ofSeconds(60))) {
                         throw new IllegalStateException("Health FAILED para " + svc.name());
